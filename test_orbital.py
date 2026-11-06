@@ -91,5 +91,28 @@ class TestOrbitalProject(unittest.TestCase):
         self.assertAlmostEqual(result[-1][1][0], 2.0)
 
 
+from physics import gravitational_acceleration
+from bodies import CelestialBody
+
+
+class TestGravity(unittest.TestCase):
+
+    def test_sun_gravity_at_one_au(self):
+        sun = CelestialBody("Sun", 1.98847e30)
+
+        acceleration = gravitational_acceleration(
+            (1.495978707e11, 0, 0),
+            [sun],
+            {"Sun": (0, 0, 0)}
+        )
+
+        self.assertLess(acceleration[0], 0)
+        self.assertAlmostEqual(acceleration[1], 0)
+        self.assertAlmostEqual(acceleration[2], 0)
+        self.assertAlmostEqual(
+            abs(acceleration[0]),
+            0.00593,
+            delta=0.00002
+        )
 if __name__ == "__main__":
     unittest.main()
