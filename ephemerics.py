@@ -1,10 +1,66 @@
+import csv
 import json
+import math
+from io import StringIO
 from urllib.parse import urlencode
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
 
 
 HORIZONS_URL = "https://ssd.jpl.nasa.gov/api/horizons.api"
+
+KM_TO_M = 1000.0
+
+
+def parse_ephemeris(raw_result):
+    if "$$SOE" not in raw_result or "$$EOE" not in raw_result:
+        raise ValueError("Invalid Horizons ephemeris response")
+
+    data_section = raw_result.split("$$SOE", 1)[1]
+    data_section = data_section.split("$$EOE", 1)[0]
+
+    records = []
+
+    for row in csv.reader(StringIO(data_section)):
+        if not row or len(row) < 8:
+            continue
+
+        try:
+            jd_tdb = float(row[0].strip())
+            calendar_date = row[1].strip()
+
+            values = [
+                float(value.strip())
+                for value in row[2:8]
+            ]
+
+            if not all(math.isfinite(value) for value in values):
+                raise ValueError("Non-finite ephemeris value")
+
+            x, y, z, vx, vy, vz = values
+
+            records.append({
+                "jd_tdb": jd_tdb,
+                "calendar_date": calendar_date,
+                "position_m": (
+                    x * KM_TO_M,
+                    y * KM_TO_M,
+                    z * KM_TO_M,
+                ),
+                "velocity_m_s": (
+                    vx * KM_TO_M,
+                    vy * KM_TO_M,
+                    vz * KM_TO_M,
+                ),
+            })
+
+        except (ValueError, IndexError):
+            continue
+
+    if not records:
+        raise ValueError("No valid ephemeris records found")
+
+    return records
 
 
 def fetch_ephemeris(
@@ -14,8 +70,10 @@ def fetch_ephemeris(
     step_size="1 d",
     timeout=30,
 ):
-    if not all(isinstance(value, str) and value.strip()
-               for value in (target, start_time, stop_time, step_size)):
+    if not all(
+        isinstance(value, str) and value.strip()
+        for value in (target, start_time, stop_time, step_size)
+    ):
         raise ValueError("Target and time parameters are required")
 
     parameters = {
@@ -41,7 +99,7 @@ def fetch_ephemeris(
 
     except (HTTPError, URLError, TimeoutError) as error:
         raise RuntimeError(
-            f"Could not retrieve JPL Horizons data: {error}"
+            f"JPL Horizons request failed: {error}"
         ) from error
 
     if "error" in data:
@@ -49,7 +107,7 @@ def fetch_ephemeris(
 
     result = data.get("result", "")
 
-    if "$$SOE" not in result or "$$EOE" not in result:
-        raise RuntimeError("No ephemeris vectors found in response")
+    if not isinstance(result, str):
+        raise RuntimeError("Unexpected Horizons response")
 
-    return result
+    return parse_ephemeris(result)
