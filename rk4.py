@@ -1,62 +1,78 @@
-def add_vectors(a, b):
+from typing import Callable, Tuple
+
+Vector3 = Tuple[float, float, float]
+State = Tuple[Vector3, Vector3]
+
+
+def add(a, b):
     return tuple(x + y for x, y in zip(a, b))
 
 
-def scale_vector(vector, scalar):
-    return tuple(scalar * x for x in vector)
+def scale(vector, factor):
+    return tuple(x * factor for x in vector)
 
 
-def derivative(state, acceleration_function):
+def add_states(a: State, b: State) -> State:
+    return (
+        add(a[0], b[0]),
+        add(a[1], b[1])
+    )
+
+
+def scale_state(state: State, factor: float) -> State:
+    return (
+        scale(state[0], factor),
+        scale(state[1], factor)
+    )
+
+
+def derivative(
+    time: float,
+    state: State,
+    acceleration: Callable
+) -> State:
+
     position, velocity = state
-    acceleration = acceleration_function(position)
 
-    return velocity, acceleration
-
-
-def rk4_step(state, dt, acceleration_function):
-    def evaluate(current_state):
-        return derivative(current_state, acceleration_function)
-
-    k1 = evaluate(state)
-
-    state2 = (
-        add_vectors(state[0], scale_vector(k1[0], dt / 2)),
-        add_vectors(state[1], scale_vector(k1[1], dt / 2))
-    )
-    k2 = evaluate(state2)
-
-    state3 = (
-        add_vectors(state[0], scale_vector(k2[0], dt / 2)),
-        add_vectors(state[1], scale_vector(k2[1], dt / 2))
-    )
-    k3 = evaluate(state3)
-
-    state4 = (
-        add_vectors(state[0], scale_vector(k3[0], dt)),
-        add_vectors(state[1], scale_vector(k3[1], dt))
-    )
-    k4 = evaluate(state4)
-
-    position = add_vectors(
-        state[0],
-        scale_vector(
-            add_vectors(
-                add_vectors(k1[0], scale_vector(k2[0], 2)),
-                add_vectors(scale_vector(k3[0], 2), k4[0])
-            ),
-            dt / 6
-        )
+    return (
+        velocity,
+        acceleration(time, position)
     )
 
-    velocity = add_vectors(
-        state[1],
-        scale_vector(
-            add_vectors(
-                add_vectors(k1[1], scale_vector(k2[1], 2)),
-                add_vectors(scale_vector(k3[1], 2), k4[1])
-            ),
-            dt / 6
-        )
+
+def rk4_step(
+    time: float,
+    state: State,
+    dt: float,
+    acceleration: Callable
+) -> State:
+
+    k1 = derivative(time, state, acceleration)
+
+    k2_state = add_states(
+        state,
+        scale_state(k1, dt / 2)
+    )
+    k2 = derivative(time + dt / 2, k2_state, acceleration)
+
+    k3_state = add_states(
+        state,
+        scale_state(k2, dt / 2)
+    )
+    k3 = derivative(time + dt / 2, k3_state, acceleration)
+
+    k4_state = add_states(
+        state,
+        scale_state(k3, dt)
+    )
+    k4 = derivative(time + dt, k4_state, acceleration)
+
+    weighted = add_states(
+        add_states(k1, scale_state(k2, 2)),
+        add_states(scale_state(k3, 2), k4)
     )
 
-    return position, velocity
+    return add_states(
+        state,
+        scale_state(weighted, dt / 6)
+    )
