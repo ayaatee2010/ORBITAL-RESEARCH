@@ -3,65 +3,66 @@ from typing import Callable, List, Tuple
 
 from rk4 import rk4_step
 
-
 Vector3 = Tuple[float, float, float]
 State = Tuple[Vector3, Vector3]
+TrajectoryPoint = Tuple[float, Vector3, Vector3]
 
 
 def validate_vector(vector, name):
     if len(vector) != 3:
-        raise ValueError(f"{name} must have exactly 3 components")
+        raise ValueError(f"{name} must have 3 components")
 
-    values = tuple(float(x) for x in vector)
+    result = tuple(float(x) for x in vector)
 
-    if not all(math.isfinite(x) for x in values):
+    if not all(math.isfinite(x) for x in result):
         raise ValueError(f"{name} contains invalid values")
 
-    return values
+    return result
 
 
 def simulate_orbit(
     initial_position: Vector3,
     initial_velocity: Vector3,
-    acceleration_function: Callable,
+    acceleration: Callable,
     duration: float,
     dt: float
-) -> List[Tuple[float, Vector3, Vector3]]:
+) -> List[TrajectoryPoint]:
 
     duration = float(duration)
     dt = float(dt)
 
     if not math.isfinite(duration) or duration < 0:
-        raise ValueError("Duration must be finite and non-negative")
+        raise ValueError("Duration must be non-negative")
 
     if not math.isfinite(dt) or dt <= 0:
-        raise ValueError("Time step must be finite and positive")
+        raise ValueError("Time step must be positive")
 
-    if not callable(acceleration_function):
-        raise TypeError("Acceleration function must be callable")
+    if not callable(acceleration):
+        raise TypeError("Acceleration must be callable")
 
-    position = validate_vector(initial_position, "Initial position")
-    velocity = validate_vector(initial_velocity, "Initial velocity")
+    position = validate_vector(initial_position, "Position")
+    velocity = validate_vector(initial_velocity, "Velocity")
 
     state: State = (position, velocity)
 
     results = [(0.0, position, velocity)]
 
     current_time = 0.0
-    max_steps = 1_000_000
     step_count = 0
+    max_steps = 1_000_000
 
     while current_time < duration:
 
         if step_count >= max_steps:
-            raise RuntimeError("Maximum simulation steps exceeded")
+            raise RuntimeError("Maximum steps exceeded")
 
         step = min(dt, duration - current_time)
 
         state = rk4_step(
+            current_time,
             state,
             step,
-            acceleration_function
+            acceleration
         )
 
         position, velocity = state
@@ -79,7 +80,5 @@ def simulate_orbit(
     return results
 
 
-def calculate_distance(position: Vector3) -> float:
-    x, y, z = position
-
-    return math.sqrt(x*x + y*y + z*z)
+def calculate_distance(position):
+    return math.sqrt(sum(x * x for x in position))
