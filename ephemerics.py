@@ -111,3 +111,54 @@ def fetch_ephemeris(
         raise RuntimeError("Unexpected Horizons response")
 
     return parse_ephemeris(result)
+
+def interpolate_state(records, jd_tdb):
+    if len(records) < 2:
+        raise ValueError("At least two records are required")
+
+    if not math.isfinite(jd_tdb):
+        raise ValueError("Invalid Julian Date")
+
+    if jd_tdb < records[0]["jd_tdb"]:
+        raise ValueError("Date is before available ephemeris data")
+
+    if jd_tdb > records[-1]["jd_tdb"]:
+        raise ValueError("Date is after available ephemeris data")
+
+    for left, right in zip(records, records[1:]):
+        t0 = left["jd_tdb"]
+        t1 = right["jd_tdb"]
+
+        if t0 <= jd_tdb <= t1:
+            if t1 <= t0:
+                raise ValueError("Ephemeris dates must increase")
+
+            fraction = (jd_tdb - t0) / (t1 - t0)
+
+            position = tuple(
+                a + fraction * (b - a)
+                for a, b in zip(
+                    left["position_m"],
+                    right["position_m"],
+                )
+            )
+
+            velocity = tuple(
+                a + fraction * (b - a)
+                for a, b in zip(
+                    left["velocity_m_s"],
+                    right["velocity_m_s"],
+                )
+            )
+
+            return {
+                "position_m": position,
+                "velocity_m_s": velocity,
+            }
+
+    raise ValueError("Could not interpolate ephemeris")
+
+
+
+
+
