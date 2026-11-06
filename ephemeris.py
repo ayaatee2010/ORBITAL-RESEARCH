@@ -23,7 +23,7 @@ class EphemerisError(Exception):
     """Base exception for ephemeris operations."""
 
 
-class EphemerisDataError(EphemerisError):
+class EphemerisDataError(EphemerisError, ValureError):
     """Raised when ephemeris data is invalid."""
 
 
