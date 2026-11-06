@@ -1,6 +1,6 @@
 import csv
 import json
-import math
+from ephemeris import interpolate_state
 from io import StringIO
 from urllib.parse import urlencode
 from urllib.request import urlopen
