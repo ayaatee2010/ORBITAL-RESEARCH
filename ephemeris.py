@@ -97,8 +97,10 @@ def parse_ephemeris(raw_result):
 
             records.append(record)
 
-        except (ValueError, IndexError):
-            continue
+        except (ValueError, IndexError) as error:
+    raise EphemerisDataError(
+        f"Invalid ephemeris record: {error}"
+    ) from error
 
     if len(records) < 2:
         raise EphemerisDataError(
